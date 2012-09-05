@@ -1,0 +1,1520 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <script language="JavaScript" type="text/javascript" src="js/InSSutiles.class.js"></script>
+  <script language="JavaScript" type="text/javascript" src="js/InSSinit.class.js"></script>
+  <script language="JavaScript" type="text/javascript" src="js/InSSinitiate.run.js"></script>
+  <script language="JavaScript" type="text/javascript" src="js/InSSafter.class.js"></script>
+  <script language="JavaScript" type="text/javascript" src="js/md5.js"></script>
+  <title>InSSsport ver 0.01 - system rezerwacji obiektów sportowych</title>
+</head>
+<body id="body">
+  <div id="generujPrzykladowyTekstStrony"></div>
+  <!--
+      -webkit-transform: rotate(-90deg); 
+-moz-transform: rotate(-90deg);	
+-->                  
+<script>
+//  var json = {
+//    'a':'b'
+//  };
+//  json['c'] = 'd';
+//  alert(json['c']);
+//  exit;
+/*
+  function dniLuty( p_year ){
+    return ( czyPrzestepny( p_year ) ) ? 29 : 28;
+  }
+  function czyPrzestepny( p_year ){
+    return ((p_year%4 == 0 && p_year%100 != 0) || p_year%400 == 0);
+  }
+           
+  var tab = new Array();
+  var tab_dni = [31,dniLuty(2012),31,30,31,30,31,31,30,31,30,31];
+  var slots = '00000000000000000000000000000000';
+
+  for( var month=0; month<12; month++ ){
+    tab[month] = new Array();
+    for( var day=0; day<tab_dni[month]; day++ )
+      tab[month][day] = slots;
+  }
+       alert(tab);
+  exit;
+       alert('false');
+*/
+		var mug;
+		var canvas = document.createElement("canvas");
+		var ctx = canvas.getContext("2d");
+		var originalPixels = null;
+		var currentPixels = null;
+
+var sportData = {
+  'reservation':{
+    'userId': '',
+    'sportId': '',
+    'date': '',
+    'objectsId': new Array(),
+    'slots': [-1,-1]
+  },
+  'params':{
+    'headerDays': 7
+  },
+  'sports':{
+    'squash':{
+      'params':{
+        'from': '07:00',  //godzina otwarcia
+        'to': '23:00',    //godzina zamkniecia
+        'slot': 30,       //dlugosc jednego slotu rezerwacji w minutach
+        'objects': {      //identyfikatory obiektow: idObiektu: idArraySlots
+          '1': 0,
+          '2': 1,
+          '3': 2,
+          '4': 3
+        },  
+        'defaultSlotsReserv': 2,  //domyslna liczba slotow zaznaczana podczas pierwszego klikniecia (w pierwszy slot)
+        'minSlotsReserv': 2,  //minimalna liczba slotow mozliwa do wybrania podczas jednej rezerwacji (razy ilosc wolnych w tym okresie kortow)
+        'maxSlotsReserv': 6,  //maksymalna liczba slotow mozliwa do wybrania podczas jednej rezerwacji (razy ilosc wolnych w tym okresie kortow)
+        'slotsInSite': 16,  //liczba slotow na strnie
+        'sites': 2 //stron
+      },
+      'objects':[ //czasy rezerwacji w slotach 30 minutowych (czyli 1h = 2x1)
+        [0,0,1,1,0,0,1,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0], //TODO: przerobic: kazdy obiekt osobno, bez przecinkow, tablica: rok,miesiac,dzien,ciag 0/1 - slotow
+        [0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],  //do przerobienia funkcje pobierajace info o zajetosci
+        [0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+      ],
+      'menu': [ 'news','priceList','book','reservations','stats' ]
+    }
+  },
+  'menu': {
+    'news': {
+      'name': 'news',
+      'ico': 'white_information.png',
+    },
+    'priceList': {
+      'name': 'cennik',
+      'ico': 'white_price.png',
+    },
+    'book': {
+      'name': 'rezerwuj',
+      'ico': 'white_schedule.png',
+    },
+    'reservations': {
+      'name': 'rezerwacje',
+      'ico': 'white_archive.png',
+    },
+    'stats': {
+      'name': 'stats',
+      'ico': 'white_stats.png',
+    }
+/*
+  'menu': {
+    'news': {
+      'name': 'NEWS'
+    },
+    'priceList': {
+      'name': 'CENNIK'
+    },
+    'book': {
+      'name': 'REZERWUJ'
+    },
+    'reservations': {
+      'name': 'REZERWACJE'
+    },
+    'stats': {
+      'name': 'STATS'
+    }
+*/
+  }
+};
+//cialo klasy do rezerwacji sportowych
+utiles.json[ 'InSSsport^html' ] = {
+  'bgBlack': {
+    'sort':       'div',
+    'parent':     '',
+    'className':  'bgBlack'
+  },
+  'sport': {
+    'sort':       'div',
+    'parent':     '',
+    'className':  'sport'
+  },
+    'menu': {
+      'sort':       'div',
+      'parent':     'sport',
+      'className':  'menu'
+    },
+      'menuHeader': {
+        'sort':       'div',
+        'parent':     'menu',
+        'className':  'menuHeader'
+      },
+      'menuBody': {
+        'sort':       'div',
+        'parent':     'menu',
+        'className':  'menuBody'
+      },
+    'site': {
+      'sort':       'div',
+      'parent':     'sport',
+      'className':  'site'
+    },
+      'header': {
+        'sort':       'div',
+        'parent':     'site',
+        'innerHTML':  'SQUASH - terminarz',
+        'className':  'header'
+      },
+      'calendar': {
+        'sort':       'div',
+        'parent':     'site',
+        'className':  'calendar'
+      },
+        'squashCalendarPrev': {
+          'sort':       'div',
+          'parent':     'calendar',
+          //'innerHTML':  '&laquo;',
+          'innerHTML':  '<img src="img/navi/icon-prev.gif" style="margin-top:-10px;opacity:0.1" /><img src="img/navi/icon-prev-one.bmp" style="margin-top:-10px;opacity:0.5;cursor:pointer;" title="[Arrow left]" onmouseover="this.style.opacity=\'1\';" onmouseout="this.style.opacity=\'0.5\';"/>',
+          'className':  'calendarArrows'
+        },
+        'squashMonday': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'innerHTML':  'Poniedziałek<br />27.08.2012',
+          'className':  'calendarDay'
+        },
+        'squashTuesday': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'innerHTML':  'Wtorek<br />28.08.2012',
+          'className':  'calendarDay'
+        },
+        'squashWednesday': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'innerHTML':  'Środa<br />29.08.2012',
+          'className':  'calendarDaySelected'
+        },
+        'squashThursday': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'innerHTML':  'Czwartek<br />30.08.2012',
+          'className':  'calendarDay'
+        },
+        'squashFriday': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'innerHTML':  'Piątek<br />31.08.2012',
+          'className':  'calendarDay'
+        },
+        'squashSaturday': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'innerHTML':  'Sobota<br />01.09.2012',
+          'className':  'calendarDay'
+        },
+        'squashSunday': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'innerHTML':  'Niedziela<br />02.09.2012',
+          'className':  'calendarDay'
+        },
+        'squashCalendarNext': {
+          'sort':       'div',
+          'parent':     'calendar',
+          //'innerHTML':  '&raquo;',
+          'innerHTML':  '<img src="img/navi/icon-next-one-grey.bmp" style="margin-top:-10px;opacity:0.5;cursor:pointer;" title="[Arrow right]" onmouseover="this.style.opacity=\'1\';" onmouseout="this.style.opacity=\'0.5\';"/><img src="img/navi/icon-next-grey.gif" style="margin-top:-10px;opacity:0.1" />',
+          'className':  'calendarArrows'
+        },
+        'line': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'className':  'calendarLine'
+        },
+        'calendarBody': {
+          'sort':       'div',
+          'parent':     'calendar',
+          'className':  'calendarBody'
+        },
+        
+};
+utiles.json[ 'InSSsport^params' ] = { 
+  'autoGenHTML':          true,          
+  'visibleRowNo':         true,          
+  'divParentId':          'body',          
+  'sourceJSONobj':        utiles.json[ 'InSSsport^html' ],             
+  'sourceJSONobjSpecial': '',             
+  'sourceCssJSONobj':     '',             
+};
+var data = new InSSsportDataManager();
+var sport = new InSSsport();
+sport.createHTML( sport.constPartHTMLsystem );
+sport.createHTML( sport.constPartHTMLschedule, [ sport.constSportSquash ] );
+sport.createHTML( sport.constPartHTMLmenu );
+sport.switch( sport.constSwitchScheduleSlotsPager, [ sport.constSportSquash, 0 ] );
+
+//testowo
+/*
+$('header').innerHTML = '<div style="clear:both;margin-top:20px;margin-bottom:30px;">'+
+                        '<div style="float:left;margin-left:230px;width:200px;opacity:0.1"><div><img id="fitness" src="img/dance.bmp"/></div>'+
+                          '<div style="color:green;">F I T N E S S</div></div>'+
+                        '<div style="float:left;width:200px;"><div><img id="squash" src="img/squash.png" width="50px" height="50px"/></div>'+
+                          '<div style="color:pink;">S Q U A S H</div></div>'+
+                        '<div style="float:left;width:200px;opacity:0.1;"><div><img id="badminton" src="img/badminton.bmp"/></div>'+
+                        ' <div style="color:navy;">B A D M I N T ON</div></div>'+
+                        '<div style="clear:both;"></div></div>';
+$('header').innerHTML = '<div style="clear:both;margin-top:20px;margin-bottom:30px;">'+
+                        '<div style="float:left;margin-left:230px;width:200px"><div><img id="fitness" src="img/dance.bmp"/></div>'+
+                          '<div style="color:green;">F I T N E S S</div></div>'+
+                        '<div style="float:left;width:200px;"><div><img id="squash" src="img/squash.png" style="opacity:0.1;"/></div>'+
+                          '<div style="color:pink;opacity:0.3;">S Q U A S H</div></div>'+
+                        '<div style="float:left;width:200px;opacity:0.1;"><div><img id="badminton" src="img/badminton.bmp"/></div>'+
+                        ' <div style="color:navy;">B A D M I N T ON</div></div>'+
+                        '<div style="clear:both;"></div></div>';
+*/
+$('header').innerHTML = '<div style="clear:both;margin-top:20px;margin-bottom:30px;">'+
+                        '<div style="float:left;margin-left:230px;width:200px;opacity:0.1;"><div><img id="fitness" src="img/dance.bmp"/></div>'+
+                          '<div style="color:green;">F I T N E S S</div></div>'+
+                        '<div style="float:left;width:200px;"><div><img id="squash" src="img/squash.png" style="opacity:0.1;"/></div>'+
+                          '<div style="color:pink;opacity:0.3;">S Q U A S H</div></div>'+
+                        '<div style="float:left;width:200px;"><div><img id="badminton" src="img/badminton.bmp"/></div>'+
+                        ' <div style="color:navy;">B A D M I N T ON</div></div>'+
+                        '<div style="clear:both;"></div></div>';
+$('header').style.clear = 'both';
+changeColor();
+
+getLogo( 'menuHeader', 'SPORT', 'ver. 0.01b', 160 );
+
+    function getLogo( p_id, p_system, p_version, p_size ){
+      switch(p_size){
+        case 160:         
+          var content_width = '160px';
+          var content_height = '120px';
+          var inss_fontsize = '60px';
+          var sys_fontsize = '30px';
+          var ver_fontsize = '14px';
+          break;
+      }
+                         
+      var e = document.createElement('div');
+      e.id = p_id+'1';
+      e.innerHTML = 'InSS';
+      e.style.fontFamily = 'Tahoma, Arial,Verdena,Helvetica,sans-serif';
+      e.style.textAlign = 'center';
+      e.style.fontSize = inss_fontsize;
+      e.style.fontWeight = 'bold';
+      e.style.height = '55%';
+      document.getElementById( p_id ).appendChild( e );  
+      
+      var e = document.createElement('div');
+      e.id = p_id+'2';
+      e.innerHTML = p_system;
+      e.style.fontSize = sys_fontsize;
+      e.style.fontFamily = 'Times New Roman, serif';
+      e.style.textAlign = 'center';
+      document.getElementById( p_id ).appendChild( e );  
+
+      var e = document.createElement('div');
+      e.id = p_id+'3';
+      e.innerHTML = p_version;
+      e.style.fontSize = ver_fontsize;
+      e.style.fontFamily = 'Times New Roman, serif';
+      e.style.textAlign = 'center';
+      document.getElementById( p_id ).appendChild( e );  
+    }
+
+
+function InSSsportDataManager(){
+  //stale - konstrukcja JSON
+  this.constDataReservation = 'reservation';
+  this.constDataReservationUserId = 'userId';
+  this.constDataReservationSportId = 'sportId';
+  this.constDataReservationDate = 'date';
+  this.constDataReservationObjectsId = 'objectsId';
+  this.constDataReservationSlots = 'slots';
+  this.constDataParams = 'params';
+  this.constDataParamsHeaderDays = 'headerDays';
+  this.constDataSports = 'sports';
+  this.constDataSportsParams = 'params';
+  this.constDataSportsParamsFrom = 'from';
+  this.constDataSportsParamsTo = 'to';
+  this.constDataSportsParamsSlot = 'slot';
+  this.constDataSportsParamsObjects = 'objects';
+  this.constDataSportsParamsDefaultSlotsReserv = 'defaultSlotsReserv';
+  this.constDataSportsParamsMinSlotsReserv = 'minSlotsReserv';
+  this.constDataSportsParamsMaxSlotsReserv = 'maxSlotsReserv';
+  this.constDataSportsParamsSlotsInSite = 'slotsInSite';
+  this.constDataSportsParamsSites = 'sites';
+  this.constDataSportsObjects = 'objects';
+  this.constDataSportsMenu = 'menu';
+  this.constDataMenu = 'menu';
+  this.constDataMenuName = 'name';
+  this.constDataMenuIco = 'ico';
+
+  //klucze danych
+  this.cUserId = 'userId';
+  this.cSportId = 'sportId';
+  this.cDate = 'date';  //YYYY-MM-DD
+  this.cDateYear = 'dateYear'; //int
+  this.cDateMonth = 'dateMonth'; //int
+  this.cDateDay = 'dateDay'; //int
+  this.cReservObjectsId = 'reservObjectsId';
+  this.cReservSlots = 'reservSlots'; //array:[slotFrom,slotTo], [-1,-1] - brak zaznaczonego terminu
+  this.cReservSlotFrom = 'reservSlotFrom'; 
+  this.cReservSlotTo = 'reservSlotTo'; 
+  this.cTime = 'time'; //HH:MM - godzina rezerwacji - pierwszego slotu
+  this.cTimeHoures = 'timeHoures'; //int
+  this.cTimeMinutes = 'timeMinutes'; //int
+  this.cHeaderDays = 'headerDays'; //int
+  //sport
+  this.cSports = 'sports'; //json
+  this.cFrom = 'from'; //HH:MM
+  this.cFromHoures = 'fromHoures'; //int
+  this.cFromMinutes = 'fromMinutes'; //int
+  this.cTo = 'to'; //HH:MM
+  this.cToHoures = 'toHoures'; //int
+  this.cToMinutes = 'toMinutes'; //int
+  this.cSlot = 'slot'; //int
+  this.cObjectsList = 'objectsList'; //array
+  this.cObjectsSlots = 'objectsSlots'; //json
+  this.cObjectArrayElementById = 'objectArrayElementById'; //int
+  this.cObjectSlots = 'objectSlots'; //array
+  this.cObjectSlot = 'objectSlot'; //int
+  this.cDefaultSlotsReserv = 'defaultSlotsReserv';
+  this.cMinSlotsReserv = 'minSlotsReserv';
+  this.cMaxSlotsReserv = 'maxSlotsReserv';
+  this.cSlotsInSite = 'slotsInSite';
+  this.cSites = 'sites';
+  this.cSportMenu = 'sportMenu';
+  this.cMenu = 'menu';
+  this.cMenuName = 'menuName';
+  this.cMenuIco = 'menuIco';
+  this.cTimeToSlot = 'timeToSlot'; //int, 0-sport,1-time(HH:MM)
+  this.cSlotToTime = 'slotToTime'; //HH:MM, 0-sport,1-slot
+
+  //zmienne
+  this.dataOK = false;
+  this.sportData = new Object();
+
+  //walidacje
+  this.validDataStruct = function(){
+    //walidacja obiektu JSON z danymi
+    try{
+      if( !utiles.exists(sportData) )
+        return utiles.alert('validDataStruct: e-010');
+    }
+    catch(e){
+      return utiles.alert('validDataStruct: e-020');
+    }
+    this.sportData = sportData;
+    
+    //walidacja struktury obiektu
+    if( !utiles.exists( this.sportData[this.constDataReservation] ) )
+      return utiles.alert('validDataStruct: e-030');
+    if( !utiles.exists( this.sportData[this.constDataReservation]
+                                      [this.constDataReservationUserId] ) )
+      return utiles.alert('validDataStruct: e-040');
+    if( !utiles.exists( this.sportData[this.constDataReservation]
+                                      [this.constDataReservationSportId] ) )
+      return utiles.alert('validDataStruct: e-050');
+    if( !utiles.exists( this.sportData[this.constDataReservation]
+                                      [this.constDataReservationDate] ) )
+      return utiles.alert('validDataStruct: e-050');
+    if( !utiles.exists( this.sportData[this.constDataReservation]
+                                      [this.constDataReservationObjectsId] ) )
+      return utiles.alert('validDataStruct: e-060');
+    if( !utiles.exists( this.sportData[this.constDataReservation]
+                                      [this.constDataReservationSlots] ) )
+      return utiles.alert('validDataStruct: e-061');
+    if( !utiles.exists( this.sportData[this.constDataReservation]
+                                      [this.constDataReservationSlots]
+                                      [0] ) )
+      return utiles.alert('validDataStruct: e-062');
+    if( !utiles.exists( this.sportData[this.constDataReservation]
+                                      [this.constDataReservationSlots]
+                                      [1] ) )
+      return utiles.alert('validDataStruct: e-063');
+    if( !utiles.exists( this.sportData[this.constDataParams] ) )
+      return utiles.alert('validDataStruct: e-070');
+    if( !utiles.exists( this.sportData[this.constDataParams]
+                                      [this.constDataParamsHeaderDays] ) )
+      return utiles.alert('validDataStruct: e-080');
+    if( !utiles.exists( this.sportData[this.constDataParams]
+                                      [this.constDataParamsHeaderDays] ) )
+      return utiles.alert('validDataStruct: e-080');
+    if( !utiles.exists( this.sportData[this.constDataSports] ) )
+      return utiles.alert('validDataStruct: e-090');
+    for( var sport in this.sportData[this.constDataSports] ){
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams] ) )
+        return utiles.alert('validDataStruct: e-100,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsFrom] ) )
+        return utiles.alert('validDataStruct: e-110,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsTo] ) )
+        return utiles.alert('validDataStruct: e-120,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsSlot] ) )
+        return utiles.alert('validDataStruct: e-130,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsObjects] ) )
+        return utiles.alert('validDataStruct: e-140,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsDefaultSlotsReserv] ) )
+        return utiles.alert('validDataStruct: e-141,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsMinSlotsReserv] ) )
+        return utiles.alert('validDataStruct: e-143,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsMaxSlotsReserv] ) )
+        return utiles.alert('validDataStruct: e-144,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsSlotsInSite] ) )
+        return utiles.alert('validDataStruct: e-145,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsParams]
+                                        [this.constDataSportsParamsSites] ) )
+        return utiles.alert('validDataStruct: e-146,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsObjects] ) )
+        return utiles.alert('validDataStruct: e-150,'+sport);
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [sport]
+                                        [this.constDataSportsMenu] ) )
+        return utiles.alert('validDataStruct: e-151,'+sport);
+      if( this.get( this.cObjectsSlots, [ sport ] ).length != this.get( this.cObjectsSlots, [ sport ] ).length )
+        return utiles.alert('validDataStruct: e-160,'+sport);
+      var slotsValid = ( ( ( this.get( this.cToHoures, [ sport ] ) * 60 ) 
+                           + this.get( this.cToMinutes, [ sport ] ) ) 
+                         - ( ( this.get( this.cFromHoures, [ sport ] ) * 60 ) 
+                           + this.get( this.cFromMinutes, [ sport ] ) ) ) 
+                       / this.get( this.cSlot, [ sport ] ); 
+      for( var i=0; i<this.get( this.cObjectsSlots, [ sport ] ).length; i++ )
+        if( this.get( this.cObjectsSlots, [ sport ] )[i].length != slotsValid )  
+          return utiles.alert('validDataStruct: e-170,'+sport+','+this.get( this.cObjectsSlots, [ sport ] )[i].length+','+slotsValid);
+      if( !utiles.exists( this.sportData[this.constDataMenu] ) )
+        return utiles.alert('validDataStruct: e-180');
+      for( var element in this.sportData[this.constDataMenu] ){
+        if( !utiles.exists( this.sportData[this.constDataMenu]
+                                          [element]
+                                          [this.constDataMenuName] ) )
+          return utiles.alert('validDataStruct: e-190');
+      }
+    };
+    return true;
+  };
+  
+  this.get = function( p_key, p_extraParamsArray ){
+    if( !utiles.exists( p_extraParamsArray ) )
+      p_extraParamsArray = new Array();
+    //walidacje
+    if( p_key in [  this.cObjectId,       this.cTime,           this.cTimeHoures, 
+                    this.cTimeMinutes,    this.cMinutes,        this.cDefaultSlotsReserv,
+                    this.cMinSlotsReserv, this.cMaxSlotsReserv, this.cSlotsInSite,
+                    this.cSites ] ){
+      if( !utiles.exists( p_extraParamsArray[0] ) )
+        return utiles.alert('get: e-020');
+      if( !utiles.exists( this.sportData[this.constDataReservation]
+                                        [this.constDataReservationObjects]
+                                        [p_extraParamsArray[0]] ) )
+        return utiles.alert('get: e-030');
+    }
+    else if( p_key in [ this.cFrom,       this.cFromHoures,   this.cFromMinutes,
+                        this.cTo,         this.cToHoures,     this.cToMinutes,
+                        this.cSlot,       this.cObjectsList,  this.cObjectsSlots,
+                        this.cObjectSlots,this.cObjectSlot,   this.cObjectArrayElementById,
+                        this.cTimeToSlot, this.cSlotToTime,   this.cSportMenu  ] ){
+      if( !utiles.exists( p_extraParamsArray[0] ) )
+        return utiles.alert('get: e-100');
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [p_extraParamsArray[0]] ) )
+        return utiles.alert('get: e-110');
+      if( p_key in [  this.cObjectSlots,  this.cObjectSlot, this.cObjectArrayElementById,
+                      this.cTimeToSlot,   this.cSlotToTime ] ){
+        if( !utiles.exists( p_extraParamsArray[ 1] ) )
+          return utiles.alert('get: e-120');
+        if( p_key in [ this.cObjectSlots, this.cObjectSlot, this.cObjectArrayElementById ] ){
+          if( !utiles.exists( this.sportData[this.constDataSports]
+                                            [p_extraParamsArray[0]]
+                                            [this.constDataSportsParams]
+                                            [this.constDataSportsParamsObjects]
+                                            [p_extraParamsArray[1]] ) )
+            return utiles.alert('get: e-130');
+          if( p_key == this.cObjectSlot ){
+            if( !utiles.exists( p_extraParamsArray[2] ) )
+              return utiles.alert('get: e-140');
+            if( !utiles.exists( this.sportData[this.constDataSports]
+                                              [p_extraParamsArray[0]]
+                                              [this.constDataSportsObjects]
+                                              [this.get( this.cObjectArrayElementById, [ p_extraParamsArray[0], p_extraParamsArray[1] ] )]
+                                              [p_extraParamsArray[2]] ) )
+              return utiles.alert('get: e-150');
+          }
+        }
+      }
+    }
+    else if( p_key in [ this.cMenuName, this.cMenuIco ] ){
+      if( !utiles.exists( p_extraParamsArray[0] ) )
+        return utiles.alert('get: e-160');
+      if( !utiles.exists( this.sportData[this.constDataMenu]
+                                        [p_extraParamsArray[0]] ) )
+        return utiles.alert('get: e-170');
+    };
+    
+    switch( p_key ){
+      case this.cUserId:
+        return this.sportData[this.constDataReservation]
+                             [this.constDataReservationUserId]; 
+      case this.cSportId:
+        return this.sportData[this.constDataReservation]
+                             [this.constDataReservationSportId]; 
+      case this.cDate:
+        return this.sportData[this.constDataReservation]
+                             [this.constDataReservationDate]; 
+      case this.cDateYear:
+        return parseInt( this.sportData[this.constDataReservation]
+                                       [this.constDataReservationDate].substr(0,4) ); 
+      case this.cDateMonth:
+        return parseInt( this.sportData[this.constDataReservation]
+                                       [this.constDataReservationDate].substr(5,2) ); 
+      case this.cDateDay:
+        return parseInt( this.sportData[this.constDataReservation]
+                                       [this.constDataReservationDate].substr(8,2) ); 
+      case this.cReservObjectsId:
+        return this.sportData[this.constDataReservation]
+                             [this.constDataReservationObjectsId]; 
+      case this.cReservSlots:
+        return this.sportData[this.constDataReservation]
+                             [this.constDataReservationSlots];
+      case this.cReservSlotFrom:
+        return this.sportData[this.constDataReservation]
+                             [this.constDataReservationSlots]
+                             [0];
+      case this.cReservSlotTo:
+        return this.sportData[this.constDataReservation]
+                             [this.constDataReservationSlots]
+                             [1];
+      case this.cTime:
+        return this.get( this.cSlotToTime, [ this.get( this.cReservSlotFrom ) ] );
+      case this.cTimeHoures:
+        return parseInt( this.get( this.cSlotToTime, [ this.get( this.cReservSlotFrom ) ] ).substr(0,2) );
+      case this.cTimeMinutes:
+        return parseInt( this.get( this.cSlotToTime, [ this.get( this.cReservSlotFrom ) ] ).substr(3,2) );
+      case this.cHeaderDays:
+        return this.sportData[this.constDataParams]
+                             [this.constDataParamsHeaderDays];
+      case this.cSports:
+        return this.sportData[this.constDataSports];
+      case this.cFrom:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsFrom];
+      case this.cFromHoures:
+        return parseInt( this.sportData[this.constDataSports]
+                                       [p_extraParamsArray[0]]
+                                       [this.constDataSportsParams]
+                                       [this.constDataSportsParamsFrom].substr(0,2) );
+      case this.cFromMinutes:
+        return parseInt( this.sportData[this.constDataSports]
+                                       [p_extraParamsArray[0]]
+                                       [this.constDataSportsParams]
+                                       [this.constDataSportsParamsFrom].substr(3,2) );
+      case this.cTo:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsTo];
+      case this.cToHoures:
+        return parseInt( this.sportData[this.constDataSports]
+                                       [p_extraParamsArray[0]]
+                                       [this.constDataSportsParams]
+                                       [this.constDataSportsParamsTo].substr(0,2) );
+      case this.cToMinutes:
+        return parseInt( this.sportData[this.constDataSports]
+                                       [p_extraParamsArray[0]]
+                                       [this.constDataSportsParams]
+                                       [this.constDataSportsParamsTo].substr(3,2) );
+      case this.cSlot:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsSlot];
+      case this.cObjectsList:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsObjects];
+      case this.cObjectsSlots:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsObjects];
+      case this.cObjectArrayElementById:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsObjects]
+                             [p_extraParamsArray[1]];
+      case this.cObjectSlots:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsObjects]
+                             [this.get( this.cObjectArrayElementById, [ p_extraParamsArray[0], p_extraParamsArray[1] ] )];
+      case this.cObjectSlot:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsObjects]
+                             [this.get( this.cObjectArrayElementById, [ p_extraParamsArray[0], p_extraParamsArray[1] ] )]
+                             [p_extraParamsArray[2]];
+      case this.cDefaultSlotsReserv:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsDefaultSlotsReserv];
+      case this.cMinSlotsReserv:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsMinSlotsReserv];
+      case this.cMaxSlotsReserv:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsMaxSlotsReserv];
+      case this.cSlotsInSite:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsSlotsInSite];
+      case this.cSites:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataSportsParams]
+                             [this.constDataSportsParamsSites];
+      case this.cSportMenu:
+        return this.sportData[this.constDataSports]
+                             [p_extraParamsArray[0]]
+                             [this.constDataMenu];
+      case this.cMenu:
+        return this.sportData[this.constDataMenu];
+      case this.cMenuName:
+        return this.sportData[this.constDataMenu]
+                             [p_extraParamsArray[0]]
+                             [this.constDataMenuName];
+      case this.cMenuIco:
+        return this.sportData[this.constDataMenu]
+                             [p_extraParamsArray[0]]
+                             [this.constDataMenuIco];
+
+      case this.cTimeToSlot:
+        var data1min = ( 60 * this.get( this.cFromHoures, [ p_extraParamsArray[0] ] ) ) + this.get( this.cFromMinutes, [ p_extraParamsArray[0] ] );
+        var data2min = ( 60 * parseInt( ( p_extraParamsArray[1] ).substr(0,2) ) )+ parseInt( ( p_extraParamsArray[1] ).substr(3,2) );
+        return ( data2min - data1min ) / this.get( this.cSlot, [ p_extraParamsArray[0] ] );
+
+      case this.cSlotToTime:
+        var d = new Date();
+        d.setHours( this.get( this.cFromHoures, [ p_extraParamsArray[0] ] ) );
+        d.setMinutes( this.get( this.cFromMinutes, [ p_extraParamsArray[0] ] ) + ( p_extraParamsArray[1] * this.get( this.cSlot, [ p_extraParamsArray[0] ] ) ) );
+        return utiles.intToStrLeadingChar( d.getHours(), '0', 2 ) + ':' + utiles.intToStrLeadingChar( d.getMinutes(), '0', 2 );
+
+      default:
+        return utiles.alert('get: e-010,'+p_key);
+        break;
+    }
+  };
+  this.set = function( p_key, p_value, p_extraParamsArray ){
+    if( !utiles.exists( p_extraParamsArray ) )
+      p_extraParamsArray = new Array();
+    //walidacje
+    if( p_key in [  this.cObjectId,       this.cTime,           this.cTimeHoures, 
+                    this.cTimeMinutes,    this.cMinutes,        this.cDefaultSlotsReserv,
+                    this.cMinSlotsReserv, this.cMaxSlotsReserv, this.cSlotsInSite,
+                    this.cSites ] ){
+      if( !utiles.exists( p_extraParamsArray[0] ) )
+        return utiles.alert('set: e-020');
+      if( !utiles.exists( this.sportData[this.constDataReservation]
+                                        [this.constDataReservationObjects]
+                                        [p_extraParamsArray[0]] ) )
+        return utiles.alert('set: e-030');
+    }
+    else if( p_key in [ this.cFrom,       this.cFromHoures,   this.cFromMinutes,
+                        this.cTo,         this.cToHoures,     this.cToMinutes,
+                        this.cSlot,       this.cObjectsList,  this.cObjectsSlots,
+                        this.cObjectSlots,this.cObjectSlot,   this.cObjectArrayElementById,
+                        this.cTimeToSlot, this.cSlotToTime, ] ){
+      if( !utiles.exists( p_extraParamsArray[0] ) )
+        return utiles.alert('set: e-100');
+      if( !utiles.exists( this.sportData[this.constDataSports]
+                                        [p_extraParamsArray[0]] ) )
+        return utiles.alert('set: e-110');
+      if( p_key in [  this.cObjectSlots,  this.cObjectSlot, this.cObjectArrayElementById ] ){
+        if( !utiles.exists( p_extraParamsArray[ 1] ) )
+          return utiles.alert('set: e-120');
+        if( !utiles.exists( this.sportData[this.constDataSports]
+                                          [p_extraParamsArray[0]]
+                                          [this.constDataSportsParams]
+                                          [this.constDataSportsParamsObjects]
+                                          [p_extraParamsArray[1]] ) )
+          return utiles.alert('set: e-130');
+        if( p_key == this.cObjectSlot ){
+          if( !utiles.exists( p_extraParamsArray[2] ) )
+            return utiles.alert('set: e-140');
+          if( !utiles.exists( this.sportData[this.constDataSports]
+                                            [p_extraParamsArray[0]]
+                                            [this.constDataSportsObjects]
+                                            [this.get( this.cObjectArrayElementById, [ p_extraParamsArray[0], p_extraParamsArray[1] ] )]
+                                            [p_extraParamsArray[2]] ) )
+            return utiles.alert('set: e-150');
+        }
+      }
+    };
+    
+    switch( p_key ){
+      case this.cUserId:
+        this.sportData[this.constDataReservation]
+                      [this.constDataReservationUserId] = p_value; 
+        break;
+      case this.cSportId:
+        this.sportData[this.constDataReservation]
+                      [this.constDataReservationSportId] = p_value; 
+        break;
+      case this.cDate:
+        this.sportData[this.constDataReservation]
+                      [this.constDataReservationDate] = p_value; 
+        break;
+      case this.cReservObjectsId:
+        this.sportData[this.constDataReservation]
+                      [this.constDataReservationObjectsId] = p_value; 
+        break;
+
+        switch( p_extraParamsArray[0] ){
+          case this.constArrayAdd:
+            if( this.sportData[this.constDataReservation]
+                              [this.constDataReservationObjectsId].indexOf( p_value ) == -1 )
+              this.sportData[this.constDataReservation]
+                            [this.constDataReservationObjectsId].splice( 0, 0, p_value );
+            break;
+          case this.constArrayRemove:
+            var indx = this.sportData[this.constDataReservation]
+                                     [this.constDataReservationObjectsId].indexOf( p_value );
+            if( indx > -1 )
+              this.sportData[this.constDataReservation]
+                            [this.constDataReservationObjectsId].splice( indx, 1 );
+            break;
+          case this.constArrayClear:
+            this.sportData[this.constDataReservation]
+                          [this.constDataReservationObjectsId] = new Array();
+            break;
+          
+          default:
+            return utiles.alert('set: e-160');
+        };
+        break;                        
+      case this.cReservSlotFrom:
+        this.sportData[this.constDataReservation]
+                      [this.constDataReservationSlots]
+                      [0] = p_value;
+        break;
+      case this.cReservSlotTo:
+        this.sportData[this.constDataReservation]
+                      [this.constDataReservationSlots]
+                      [1] = p_value;
+        break;
+      case this.cHeaderDays:
+        this.sportData[this.constDataParams]
+                      [this.constDataParamsHeaderDays] = p_value;
+        break;
+      case this.cFrom:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsFrom] = p_value;
+        break;
+      case this.cTo:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsTo] = p_value;
+        break;
+      case this.cSlot:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsSlot] = p_value;
+        break;
+      case this.cObjectArrayElementById:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsObjects]
+                      [p_extraParamsArray[1]] = p_value;
+        break;
+      case this.cObjectSlot:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsObjects]
+                      [this.get( this.cObjectArrayElementById, [ p_extraParamsArray[0], p_extraParamsArray[1] ] )]
+                      [p_extraParamsArray[2]] = p_value;
+        break;
+      case this.cDefaultSlotsReserv:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsDefaultSlotsReserv] = p_value;
+        break;
+      case this.cMinSlotsReserv:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsMinSlotsReserv] = p_value;
+        break;
+      case this.cMaxSlotsReserv:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsMaxSlotsReserv] = p_value;
+        break;
+      case this.cSlotsInSite:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsSlotsInSite] = p_value;
+        break;
+      case this.cSites:
+        this.sportData[this.constDataSports]
+                      [p_extraParamsArray[0]]
+                      [this.constDataSportsParams]
+                      [this.constDataSportsParamsSites] = p_value;
+        break;
+      default:
+        return utiles.alert('set: e-010,'+p_key);
+    }
+  };
+  
+  
+  this.init = function(){
+    this.dataOK = this.validDataStruct();
+  };
+  
+  this.init();
+};
+
+function InSSsport(){
+/* TODO:
+1. Tryby pracy
+1.1. User - rezerwacja www
+1.2. Reception - rezerwacja w recepcji
+1.3. Stats - zestawienia
+2. Zalozenia ogolne:
+2.1. Logowanie/rejestracja uzytkownika
+2.2. Tryby konta uzytkownika
+2.2.1. Konto nieaktywne - po rejestracji wymagane jest potwierdzenie np klikniecie w link wyslany na podany mail
+2.2.2. Konto nieautoryzowane - juz w recepcji najczesciej podczas pierwszej wizyty w obiekcie (mozliwosc identyfikacji: pokazanie dowodu etc)
+2.2.3. Mozliwosc nadawania roznych rang kontom uzytkownika
+  chodzi o mozliwosc wiekszej liczby rezerwacji jednoczesnie,
+  np. uzytkownik zaraz po zarejestrowaniu moze dokonac tylko jednej rezerwacji, najczesciej przy okazji jak juz wykorzystuje zaplanowana rezerwacje
+  dokonuje autoryzacji konta w recepcji - chodzi o zweryfikowanie autentycznosci uzytkownika celem wyeliminowania nieautoryzowanych rezerwacji
+  np. przez uzytkownikow dokonujacych rezerwacji dla zabawy - szkoda terminow (jesli juz ktos naprawde sie nudzi i nie ma co z czasem robic, ze
+  dokonuje wielokrotnych rejestracji celem lewych rezerwacji - dodatkowo rejestrowane beda ifnromacje o lokalizacji (IP, skad sie rejestruje)
+  oraz mozliwosc zablokowania takich niepowolanych wizyt w systemie (nieuniknione, trzeba sie na to rowniez nastawic)
+  uzytkownik autoryzowany moze dokonywac wiekszej liczby rezerwacji - ale dodatkowo mozna nagradzac weteranow obiektu jakims oznaczeniem
+  tak jak jest na forach, poczuje sie doceniony, a wsrod pozostalych uzytkownikow dodatkowo moze liczyc na wiekszy szacunek - dokladnie jak na
+  forach, docelowo mozna sie zastanowic nad specjalnymi opcjami konta dostepnymi tylko dla zasluzonych uzytkownikow, tez taki bonus
+2.3. Autoryzacja konta w recepcji
+  Powinna nadac kontu jakas tam wiarygodnosc, raczej nikt z lewych uzytkownikow nie bedzie sie fatygowal na obiekt, zeby pozniej bruzdzic
+  w systemie rezerwacji, mozliwosc wylegitymowania, okazania dowodu, moze i nawet spisanie numeru - zeby nadawalo powagi, 
+  zeby troszku zdyscyplinowac klientele z wczesniejszym odwolywaniem kortu, aby uniknac poniesienia dodatkowych kosztow (chyba jak to jest obecnie)
+2.4. Rezerwacja www
+2.4.1. Grafik wybranej dyscypliny
+2.4.2. Rezerwacja - zaznaczenie wybranego terminu - i potwierdzenie OK
+  mozna wysylac na maila info o dokonanej rezerwacji, taka przypominajka,
+  ale nie jest to az tak potrzebne, poniewaz w histori rezerwacji sa wszystkie dokonane przez uzytkownika rezerwacje, tak samo nie 
+  jest konieczne potwierdzenie kliknieciem w link wyslany na maila - raczej takie zabezpieczenia nie sa tutaj wymagane - to tylko rezerwacja
+  nawet jesli ktos zostawi komputer z zalogowanym kontem i kolega za niego zarezerwuje, to przeciez nic sie takiego nie stanie)
+2.4.3. Uzytkownik nie widzi kto na kiedy rezerwowal kort w grafiku, chyba ze dany uzytkownik zaznaczy specjalna opcje pokazywania swoich rezerwacji
+2.4.4. Dane konta
+2.4.4.1. Dane personalne (imie, nazwisko, adres, opcjonalnie foto, telefon, mail, haslo, nick)
+2.4.4.2. Ustawienia konta (opcje, co pokazywac innym uzytkownikom etc - mozna rozwijac w czasie)
+2.4.4.3. Statystyka (tutaj wszystkie informacje dotyczace aktywnosci uzytkownika, wlacznie z ewentualnymi osiagnieciami w turniejach, 
+  mozliwosc budowania specjalnych zestawien opcjonalne - ladnie by wygladalo)
+2.4.4.4. Mozliwosc usuniecia konta - tak naprawde cala historia konta zostaje, status konta zmienia sie na usuniete, uzytkownik nie ma mozliwosci
+  logowania, a w systemie w historycznych zapisach obok informacji o wlascicielu konta jest adnotakcja (konto usuniete)
+2.4.5. Poza rezerwcja - dodatkowe funcjonalnosci konta
+2.4.5.1. Tablica ogloszen w stylu, zagralbym z kims, mam wolny kort na wtedy i wtedy (obok opcja z wyslaniem info do adresata do akecpatacji ze
+  sie chce zagrac), grupowe umawianie sie (przydatne dla ligi, gdzie ligowcy lubia sie umawiac np w 4 na 2 korty i sie poprostu wymieniac,
+  sprzedam rakiete, naciagi do rakiet, etc
+2.4.5.2. Turnieje, ligi - wyniki, historyczne wyniki, statystyki wszelkiego rodzaju - koniecznosc ewidencji danych w recepcji (oddzielny modul do tego)
+2.4.5.3. Mozliwosc grupowej rezerwacji kortow - w stylu pracodawca wynajmuje obiekt na pol dnia (ale to chyba lepiej na telefon)
+2.4.5.4. Koniecznie forum  - trzeba znalezc moderatorow
+2.5. Dla np fitnessu mozliwosc zbierania sie nowej grupy, czyli otwarta lista, na ktorej dopisuja sie kolejne osoby 
+  okaujace chec cwiczenia (az do zapelnienia listy)
+3. Mozliwosc umieszczenia skromnych reklam, ktore nie beda przeszkadzaly uzytkownikom, a dodatkowo pozwola zarabiac na siebie
+*/
+  //id
+  this.cIdMenu = 'menu';
+  this.cIdSite = 'site';
+  this.cIdCalendarBody = 'calendarBody';
+  this.cIdCalendarSportSufix = 'sportSufix';
+  this.cIdCalendarSportHeader = 'sportHeader'; 
+  this.cIdCalendarSportHeaderElement = 'sportHeaderElement'; 
+  this.cIdCalendarSportPager = 'sportPager';
+  this.cIdCalendarSportPagerElement = 'sportPagerElement';
+  this.cIdCalendarSportSlotsLine = 'sportSlotsLine'; 
+  this.cIdCalendarSportSlot = 'sportSlot';
+  this.cIdMenuBody = 'menuBody';
+  
+  //css class
+  this.constCssClassCalendarPager = 'calendarPager';
+  this.constCssClassCalendarPagerElement = 'calendarPagerElement';
+  this.constCssClassCalendarSlots = 'calendarSlots';
+  this.constCssClassCalendarLine = 'calendarLine';
+  this.constCssClassCalendarSlotHeader = 'calendarSlotHeader';
+  this.constCssClassCalendarSlotHeader2 = 'calendarSlotHeader2';
+  this.constCssClassCalendarSlotHour = 'calendarSlotHour';
+  this.constCssClassCalendarSlotHourFirst = 'calendarSlotHourFirst';
+  this.constCssClassCalendarSlot = 'calendarSlot';
+  this.constCssClassCalendarSlot2 = 'calendarSlot2';
+  this.constCssClassMenuElement = 'menuElement';
+  
+  //systemowe 
+  this.constPartHTMLsystem = 'system';
+  this.constPartHTMLmenu = 'menu';
+  this.constPartHTMLschedule = 'schedule';
+  //sporty
+  this.constSportSquash = 'squash';
+  //przelaczanie - typy
+  this.constSwitchScheduleSlotsPager = 'scheduleSlotsPager';
+  this.constSwitchScheduleDaysPager = 'scheduleDaysPager';
+  this.constSwitchScheduleDay = 'scheduleDay';
+  this.constSwitchSport = 'sport';
+  
+  this.getId = function( p_key, p_extraParamsArray ){
+    if( !utiles.exists( p_extraParamsArray ) )
+      p_extraParamsArray = new Array();
+    
+    if( p_key in [ this.cIdCalendarSportSufix,        this.cIdCalendarSportHeader, 
+                   this.cIdCalendarSportHeaderElement,this.cIdCalendarSportPager,
+                   this.cIdCalendarSportPagerElement, this.cIdCalendarSportSlotsLine, 
+                   this.cIdCalendarSportSlot ] ){
+      if( !utiles.exists( p_extraParamsArray[0] ) )
+        return utiles.alert('getId: e-020,'+p_key);
+      if( !utiles.exists( data.get( data.cSports )[p_extraParamsArray[0]] ) ) 
+        return utiles.alert('getId: e-030,'+p_key+','+p_extraParamsArray[0]);
+      if( p_key in [ this.cIdCalendarSportHeaderElement,  this.cIdCalendarSportPagerElement,
+                     this.cIdCalendarSportSlotsLine,      this.cIdCalendarSportSlot ] ){
+        if( !utiles.exists( p_extraParamsArray[1] ) )
+          return utiles.alert('getId: e-040,'+p_key);
+        if( p_key in [ this.cIdCalendarSportSlot ] ){
+          if( !utiles.exists( p_extraParamsArray[2] ) )
+            return utiles.alert('getId: e-050,'+p_key);
+        }
+      }
+    }
+    
+    switch( p_key ){
+      case this.cIdMenu:
+        return 'menu';
+      case this.cIdSite:
+        return 'site';
+      case this.cIdCalendarBody:
+        return 'calendarBody';
+      case this.cIdCalendarSportSufix:
+        return p_extraParamsArray[0]+'Body';
+      case this.cIdCalendarSportHeader: 
+        return this.getId( this.cIdCalendarSportSufix, [ p_extraParamsArray[0] ] )+'_H';
+      case this.cIdCalendarSportHeaderElement:
+        return this.getId( this.cIdCalendarSportSufix, [ p_extraParamsArray[0] ] )+'_H_'+p_extraParamsArray[1]; 
+      case this.cIdCalendarSportPager:
+        return this.getId( this.cIdCalendarSportSufix, [ p_extraParamsArray[0] ] )+'_P';
+      case this.cIdCalendarSportPagerElement:
+        return this.getId( this.cIdCalendarSportSufix, [ p_extraParamsArray[0] ] )+'_P_'+p_extraParamsArray[1];
+      case this.cIdCalendarSportSlotsSite:
+        return this.getId( this.cIdCalendarSportSufix, [ p_extraParamsArray[0] ] )+'_SS_'+p_extraParamsArray[1]; 
+      case this.cIdCalendarSportSlotsLine:
+        return this.getId( this.cIdCalendarSportSufix, [ p_extraParamsArray[0] ] )+'_S_'+p_extraParamsArray[1]; 
+      case this.cIdCalendarSportSlot:
+        return this.getId( this.cIdCalendarSportSufix, [ p_extraParamsArray[0] ] )+'_S_'+p_extraParamsArray[1]+'_'+p_extraParamsArray[2];
+      default:
+        return utiles.alert('getId: e-010,'+p_key);
+    };
+  };
+  this.createHTML = function( p_part, p_paramsArray ){
+    if( !utiles.exists( p_paramsArray ) )
+      var p_paramsArray = new Array();
+    
+    switch( p_part ){
+      case this.constPartHTMLsystem:
+        after.createHTML( utiles.json[ 'InSSsport^params' ] );
+        break;
+      
+      case this.constPartHTMLmenu:
+        this.createHTMLmenu();
+        break;
+
+      case this.constPartHTMLschedule:
+        this.createHTMLschedule( p_paramsArray[0] );
+        break;
+
+      default:
+        return utiles.alert('createHTML: e-010');
+        break;
+    };
+  };
+  //tworzy grafik wybranej dyscypliny sportowej
+  this.createHTMLschedule = function( p_type ){
+    var p_innerHTML = '';
+    var p_className = '';
+
+    //liczba stron
+    var objects = data.get( data.cObjectsSlots, [ p_type ] ).length;
+    var slots = data.get( data.cTimeToSlot, [ p_type, data.get( data.cTo, [ p_type ] ) ] );
+    var slotsInSite = data.get( data.cSlotsInSite, [ p_type ] );
+    var sites = parseInt( slots / slotsInSite );
+    if( sites*slotsInSite != slots )
+      sites++;
+    data.set( data.cSites, sites, [ p_type ] );
+    
+    //body
+    if( !utiles.createChild( this.getId( this.cIdCalendarSportSufix, [ p_type ] ), 
+                             this.getId( this.cIdCalendarBody ), 
+                             this.constCssClassCalendarSlots ) )
+      return false;
+    
+    //naglowek
+    if( !utiles.createChild( this.getId( this.cIdCalendarSportHeader, [ p_type ] ), 
+                             this.getId( this.cIdCalendarSportSufix, [ p_type ] ), 
+                             this.constCssClassCalendarLine ) )
+      return false;         
+    for( var j=0; j<=objects; j++ ){
+      if( j == 0 ){
+        p_innerHTML = '&nbsp;';
+        p_className = this.constCssClassCalendarSlotHeader2;
+      }
+      else{
+        p_innerHTML = 'Kort #'+j;
+        p_className = this.constCssClassCalendarSlotHeader;
+      }
+      if( !utiles.createChild( this.getId( this.cIdCalendarSportHeaderElement, [ p_type, j ] ), 
+                               this.getId( this.cIdCalendarSportHeader, [ p_type ] ), 
+                               p_className,
+                               p_innerHTML ) )
+        return false;
+    }
+          
+    //utworz strony terminow
+    for( var i=0; i<sites; i++ ){    
+      if( !utiles.createChild( this.getId( this.cIdCalendarSportSlotsSite, [ p_type, i ] ),
+                               this.getId( this.cIdCalendarSportSufix, [ p_type ] ) ) )
+        return false;
+      //ukryj od razu    
+      $( this.getId( this.cIdCalendarSportSlotsSite, [ p_type, i ] ) ).style.display = 'none';
+    }
+    
+    //na koncu utworz pager
+    if( !utiles.createChild( this.getId( this.cIdCalendarSportPager, [ p_type ] ), 
+                             this.getId( this.cIdCalendarSportSufix, [ p_type ] ), 
+                             this.constCssClassCalendarPager ) )
+      return false;
+
+    //jezeli tylko jedna strona, ukryj pager
+    if( sites == 1 )
+      $( this.getId( this.cIdCalendarSportPager, [ p_type ] ) ).style.display = 'none';
+
+    //utworz naglowki stron pagera
+    if( !utiles.createChild( 'xyz_test', 
+                             this.getId( this.cIdCalendarSportPager, [ p_type ] ), 
+                             p_className = this.constCssClassCalendarSlotHour,
+                             '&nbsp;' ) )
+      return false;
+    for( var i=0; i<sites; i++ ){    
+      if( !utiles.createChild( this.getId( this.cIdCalendarSportPagerElement, [ p_type, i ] ), 
+                               this.getId( this.cIdCalendarSportPager, [ p_type ] ), 
+                               this.constCssClassCalendarPagerElement ) )
+        return false;
+      $( this.getId( this.cIdCalendarSportPagerElement, [ p_type, i ] ) ).innerHTML = this.schedulePagerHeader( p_type, i, sites, slotsInSite );
+    }
+
+    //na koncu strony uzupelnij slotami
+    for( var i=0; i<slots; i++ ){
+      if( !utiles.createChild( this.getId( this.cIdCalendarSportSlotsLine, [ p_type, i ] ), 
+                               this.getId( this.cIdCalendarSportSlotsSite, [ p_type, (parseInt(i/slotsInSite)) ] ), 
+                               this.constCssClassCalendarLine ) )
+        return false;
+      for( var j=0; j<=objects; j++ ){
+        if( j == 0 ){
+          p_className = this.constCssClassCalendarSlotHour;
+          if( i%2 == 1 )
+            p_innerHTML = data.get( data.cSlotToTime, [ p_type, (i+1) ] );
+          else if( i%slotsInSite == 0 ){
+            p_className = this.constCssClassCalendarSlotHourFirst;
+            p_innerHTML = data.get( data.cSlotToTime, [ p_type, (i) ] );
+          }
+          else
+            p_innerHTML = '&nbsp;';
+        }
+        else{
+          if( i%2 == 1 )
+            p_className = this.constCssClassCalendarSlot2;
+          else
+            p_className = this.constCssClassCalendarSlot;
+          p_innerHTML = '&nbsp;';
+        }
+        if( !utiles.createChild( this.getId( this.cIdCalendarSportSlot, [ p_type, i, j ] ), 
+                                 this.getId( this.cIdCalendarSportSlotsLine, [ p_type, i ] ), 
+                                 p_className,
+                                 p_innerHTML ) )
+          return false;
+      }
+    }
+  };
+  this.schedulePagerHeader = function( p_type, p_site_no, p_sites, p_slotsInSite ){
+    if( p_site_no == 0 )
+      var hFrom = data.get( data.cFrom, [ p_type ] );
+    else
+      var hFrom = data.get( data.cSlotToTime, [ p_type, (p_site_no*p_slotsInSite) ] );
+    if( p_site_no == p_sites )
+      var hTo = data.get( data.cTo, [ p_type ] );
+    else
+      var hTo = data.get( data.cSlotToTime, [ p_type, ((p_site_no+1)*p_slotsInSite) ] );
+    
+    return hFrom + ' - ' + hTo;
+  };
+  this.createHTMLmenu = function(){
+    for( var element in data.get( data.cMenu ) ){
+      if( !utiles.createChild( element, 
+                               this.cIdMenuBody, 
+                               this.constCssClassMenuElement ) )
+        return false;
+      //$( element ).innerHTML = data.get( data.cMenuName, [ element ] );
+      if( element =='book' )
+        $( element ).innerHTML = '<img onload="getPixels(this)" id="book_img" src="img/menu/'+data.get( data.cMenuIco, [ element ] )+'" align=bottom>&nbsp;&nbsp;&nbsp;'+data.get( data.cMenuName, [ element ] );
+      else
+        $( element ).innerHTML = '<img src="img/menu/'+data.get( data.cMenuIco, [ element ] )+'" align=bottom>&nbsp;&nbsp;&nbsp;'+data.get( data.cMenuName, [ element ] );
+    }
+    $( 'book' ).style.backgroundColor = 'white';
+    $( 'book' ).style.color = 'pink';
+    $( 'book' ).style.color = 'green';
+    $( 'book' ).style.color = 'navy';
+    $( 'book' ).style.marginLeft = '0px';
+    $( 'book' ).style.paddingLeft = '15px';
+    mug = document.getElementById("book_img");
+    getPixels($( 'book_img' ));
+    //news
+    //cennik
+    //rezerwuj
+    //rezerwacje
+    //stats
+    
+    //takie tam pierdy
+    var zajete = '#F4F4F4';//'#F4F4F4';//'#fcfcfc';
+    var choose = 'navy';
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 2, 4 ] ) ).style.backgroundColor = zajete;
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 3, 4 ] ) ).style.backgroundColor = zajete;
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 4, 3 ] ) ).style.backgroundColor = zajete;
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 5, 3 ] ) ).style.backgroundColor = zajete;
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 8, 3 ] ) ).style.backgroundColor = choose;
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 9, 3 ] ) ).style.backgroundColor = choose;
+
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 7, 3 ] ) ).style.borderBottom = 'none';
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 8, 3 ] ) ).style.borderBottom = '1px solid navy';
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 8, 3 ] ) ).style.borderRight = 'none';
+    $( this.getId( this.cIdCalendarSportSlot, [ 'squash', 9, 3 ] ) ).style.border = 'none';
+  };
+  this.switch = function( p_type, p_paramsArray ){
+    if( !utiles.exists( p_paramsArray ) )
+      p_paramsArray = new Array();
+    if( p_type in[ this.constSwitchScheduleSlotsPager,  this.constSwitchScheduleDaysPager,
+                   this.constSwitchScheduleDay,         this.constSwitchSport  ] ){//TODO
+      if( !utiles.exists( p_paramsArray[0] ) )
+        return utiles.alert( 'switch: e-010' );
+      if( !utiles.exists( p_paramsArray[1] ) )
+        return utiles.alert( 'switch: e-020' );
+      //if( p_key in[ this.constSwitchScheduleDay ] )
+        //if( !utiles.exists( p_paramsArray[1] ) )
+          //return utiles.alert( 'switch: e-020' );
+    }
+    switch( p_type ){
+      case this.constSwitchScheduleSlotsPager:
+        //reset
+        for(var i=0; i<data.get( data.cSites, [ p_paramsArray[0] ] ); i++ ){
+          $( this.getId( this.cIdCalendarSportSlotsSite, [ p_paramsArray[0], i ] ) ).style.display = 'none'; 
+        }
+        $( this.getId( this.cIdCalendarSportSlotsSite, [ p_paramsArray[0], p_paramsArray[1] ] ) ).style.display = '';
+        break;
+      case this.constSwitchScheduleDaysPager:
+        break;
+      case this.constSwitchScheduleDay:
+        break;
+      case this.constSwitchSport:
+        break;
+    }
+  };
+};
+
+//html5 rules
+		
+		function HexToRGB(Hex)
+		{
+			var Long = parseInt(Hex.replace(/^#/, ""), 16);
+			return {
+				R: (Long >>> 16) & 0xff,
+				G: (Long >>> 8) & 0xff,
+				B: Long & 0xff
+			};
+		}
+		
+		function changeColor()
+		{     
+			if(!originalPixels) return; // Check if image has loaded
+      //var newColor = HexToRGB('#FFC0CB'); //pink
+      //var newColor = HexToRGB('#008000'); //green
+      var newColor = HexToRGB('#000080'); //navy
+      
+			
+			for(var I = 0, L = originalPixels.data.length; I < L; I += 4)
+			{
+				if(currentPixels.data[I + 3] > 0)
+				{
+					currentPixels.data[I] = originalPixels.data[I] / 255 * newColor.R;
+					currentPixels.data[I + 1] = originalPixels.data[I + 1] / 255 * newColor.G;
+					currentPixels.data[I + 2] = originalPixels.data[I + 2] / 255 * newColor.B;
+				}
+			}
+			
+			ctx.putImageData(currentPixels, 0, 0);
+			mug.src = canvas.toDataURL("image/png");
+		}
+		
+		function getPixels(img)
+		{
+			canvas.width = img.width;
+			canvas.height = img.height;
+			
+			ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, img.width, img.height);
+			originalPixels = ctx.getImageData(0, 0, img.width, img.height);
+			currentPixels = ctx.getImageData(0, 0, img.width, img.height);
+			
+			img.onload = null;
+		}
+
+</script>
+
+<script>
+  //smiecie
+  function $( id ){
+    return document.getElementById( id );
+  }
+  function generujPrzykladowyTekstStrony( p_sId, p_nZdan ){
+    var ListaZdan = [
+      'Samolot – statek powietrzny cięższy od powietrza (aerodyna), utrzymujący się w powietrzu dzięki wytwarzanej sile nośnej za pomocą nieruchomych, w danych warunkach względem statku, skrzydeł.',
+      'Ciąg potrzebny do utrzymania prędkości w locie poziomym wytwarzany jest przez jeden lub więcej silników.',
+      'Wyróżnia się dwa rodzaje napędów:',
+      'śmigłowy, w którym moment obrotowy silnika zamieniany jest na ciąg za pomocą śmigła; do takiego napędu stosuje się silniki tłokowe lub turbinowe,',
+      'odrzutowy, w którym ciąg wytwarzany jest bezpośrednio w silniku; zwykle stosuje się silniki turboodrzutowe, silniki rakietowe wykorzystywane są głównie w konstrukcjach eksperymentalnych lub jako napęd pomocniczy przy starcie.',
+      'Ludzie w zamierzchłych czasach myśleli o lataniu.',
+      'Na podstawie obserwacji ptaków Leonardo da Vinci (1452-1519) zaprojektował pierwszą Lotnię.',
+      'Pionierzy latania tacy jak Niemiec Otto Lilienthal (1848-1896) udowodnili, że szybowiec może wynieść człowieka w powietrze.',
+      'Pod koniec XIX w. wielu wynalazców próbowało skonstruować samolot, czyli szybowiec z napędem.',
+      'Udało się to dwóm Amerykanom braciom Orvilleowi (1871-1948) i Wilburowi (1867-1917) Wright, którzy zbudowali samolot poruszany silnikiem spalinowym i w 1903 dokonali na nim pierwszego kontrolowanego przelotu.',
+      'Trwał on 12 sekund.',
+      'Tego samego dnia bracia dokonali kolejnych trzech przelotów, w trakcie których samolot przeleciał 270 m, a najdłuższy lot trwał 59 sekund.',
+      'Ten rok uznaje się za początek ery samolotów.',
+      'Jednak niezależnie już wcześniej samoloty konstruował Clément Ader (1841-1925), który był pierwszym człowiekiem na pokładzie samolotu; wzniósł się na samolocie napędzanym silnikiem parowym.',
+      'Pierwsze prace nad silnikiem odrzutowym nastąpiły w latach 30. XX wieku.',
+      'Silniki tłokowe okazały się niezbyt przydatne przy dużych prędkościach oraz na znacznych wysokościach, gdzie powietrze jest rozrzedzone.',
+      'Potrzebny był nowy typ silnika.',
+      'Już w latach 30. XX w. brytyjski inżynier Frank Whittle (1907-1996) opatentował projekt silnika odrzutowego, ale pierwszym odrzutowcem był niemiecki Heinkel He 178 poddany próbom w 1939 r.',
+      'Brytyjskie i amerykańskie odrzutowce pojawiły się niedługo potem, w czasie II wojny światowej.',
+      'Dzisiejsze tego typu samoloty mogą pokonać prędkość dźwięku.'
+    ];
+    if( $( p_sId ) )
+      for( var i=0; i<p_nZdan; i++ )
+        $( p_sId ).innerHTML += ListaZdan[i%ListaZdan.length]+'<br />';   
+  };
+  generujPrzykladowyTekstStrony( 'generujPrzykladowyTekstStrony', 33 )
+</script>
+<style>
+  body{
+    margin:0;
+    padding:0;
+    font-family:Georgia, sans-serif;
+  }
+  div.bgBlack{
+    width:100%;
+    height:100%;
+    position:fixed;
+    bottom:0;
+    left:0;
+    z-index:10;
+    background:black;
+    opacity:0.8;
+  }
+  div.sport{
+    width: 90%;
+    height: 80%;
+    background: white;
+    box-shadow: 0px 0px 25px silver;
+    border-radius: 15px 15px 15px 15px;
+    position:fixed;
+    top:10%;
+    left:5%;
+    z-index:20;
+  }
+  div.menu{
+    width:15%;
+    background:navy;/*green,pink*/
+    height:100%;
+    border-radius: 15px 0px 0px 15px;
+    float:left;
+  }
+  div.menuHeader{
+    height:120px;
+    background:white;
+    margin-top:15px;
+    color:navy;/*green,pink*/
+  }
+  div.menuBody{
+    color:white;
+    margin-top:15px;
+  }
+  div.menuElement{
+    /*margin-top:15px;*/
+    padding-top:8px;
+    padding-bottom:8px;
+    margin-left:15px;
+    text-align:left;
+    font-family: Times New Roman, sans-serif;
+    font-size:20px;
+  }
+  div.site{
+    width:85%;
+    height:100%;
+    border-radius: 0px 15px 15px 0px;
+    float:left;
+  }
+  div.header{
+    margin:5px 0 10px 0;
+    color:navy;/*green,pink*/
+    font-size:20px;
+    text-align:center;
+  }
+  div.calendar{
+    margin:0;
+  }
+  div.calendarDay{
+    float:left;
+    width:11%;
+    text-align:center;
+  }
+  div.calendarDaySelected{
+    float:left;
+    width:11%;
+    text-align:center;
+    text-decoration:underline;
+  }
+  div.calendarArrows{
+    float:left;
+    width:10%;
+    text-align:center;
+    font-size:32px;
+  }
+  div.calendarBody{
+    
+  }
+  div.calendarPager{
+    margin-top:20px;
+    clear:both;
+    width:500px;
+  }
+  div.calendarPagerElement{
+    margin-top:20px;
+    width:195px;
+    float:left;
+    text-align:center;
+    font-size:12px;
+  }
+  div.calendarSlots{
+
+  }
+  div.calendarLine{
+    clear:both;
+    font-size:10px;
+  }
+  div.calendarSlotHeader{
+    width:100px;
+    float:left;
+    font-size:11px;
+    text-align:center;
+    border-bottom:2px dotted silver;    /*#F4F4F4*/
+    padding:5px 0 10px 0;
+  }
+  div.calendarSlotHeader2{
+    width:100px;
+    float:left;
+    font-size:11px;
+    text-align:right;
+    padding-right:5px;
+  }
+  div.calendarSlotHour{
+    width:100px;
+    float:left;
+    font-size:11px;
+    text-align:right;
+    padding-right:5px;
+    position:relative;
+    top:12px;
+  }
+  div.calendarSlotHourFirst{
+    width:100px;
+    float:left;
+    font-size:11px;
+    text-align:right;
+    padding-right:5px;
+    position:relative;
+    top:-10px;
+  }
+  div.calendarSlot{
+    border:1px dotted silver;/*#F4F4F4*/
+    border-top:none;
+    border-left:none;
+    width:100px;
+    height:20px;
+    float:left;
+    font-size:11px;
+  }
+  div.calendarSlot2{
+    border-bottom:2px dotted silver; /*#F4F4F4*/
+    border-right:1px dotted silver; /*#F4F4F4*/
+    border-top:none;
+    border-left:none;
+    width:100px;
+    height:20px;
+    float:left;
+    font-size:11px;
+  }
+
+</style><div style="font-family: Vani;">«</div>
+  </body>
+</html>
