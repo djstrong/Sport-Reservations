@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Generation Time: Sep 10, 2012 at 12:28 AM
+-- Generation Time: Sep 10, 2012 at 12:50 AM
 -- Server version: 5.5.24
 -- PHP Version: 5.3.10-1ubuntu3.2
 
@@ -156,10 +156,10 @@ CREATE TABLE IF NOT EXISTS `CLIENT` (
   `company_id` int(11) NOT NULL,
   `name` varchar(45) COLLATE utf8_polish_ci DEFAULT NULL,
   `surname` varchar(45) COLLATE utf8_polish_ci DEFAULT NULL,
-  `mail` varchar(255) COLLATE utf8_polish_ci DEFAULT NULL,
+  `mail` varchar(255) COLLATE utf8_polish_ci NOT NULL,
   `group_id` int(11) NOT NULL,
-  `hash` char(40) COLLATE utf8_polish_ci DEFAULT NULL,
-  `salt` char(20) COLLATE utf8_polish_ci DEFAULT NULL,
+  `hash` char(40) COLLATE utf8_polish_ci NOT NULL,
+  `salt` char(20) COLLATE utf8_polish_ci NOT NULL,
   `client_status_id` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `mail_UNIQUE` (`mail`),
@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS `CLIENT` (
 --
 
 INSERT INTO `CLIENT` (`id`, `company_id`, `name`, `surname`, `mail`, `group_id`, `hash`, `salt`, `client_status_id`) VALUES
-(1, 1, 'Jan', 'Kowalski', 'jan@kowalski.pl', 1, NULL, NULL, 1);
+(1, 1, 'Jan', 'Kowalski', 'jan@kowalski.pl', 1, 'asdasdasd', 'asdasd', 1);
 
 -- --------------------------------------------------------
 
@@ -270,7 +270,8 @@ CREATE TABLE IF NOT EXISTS `EMPLOYER` (
   `login` varchar(45) COLLATE utf8_polish_ci NOT NULL,
   `hash` char(40) COLLATE utf8_polish_ci NOT NULL,
   `salt` char(20) COLLATE utf8_polish_ci NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `login_UNIQUE` (`login`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_polish_ci;
 
 -- --------------------------------------------------------
@@ -383,7 +384,7 @@ CREATE TABLE IF NOT EXISTS `PRICE` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `location_sport_id` int(11) NOT NULL,
   `GROUP_id` int(11) NOT NULL,
-  `cost` decimal(10,0) DEFAULT NULL,
+  `cost` decimal(10,0) NOT NULL,
   `start_hour` time DEFAULT NULL,
   `end_hour` time DEFAULT NULL,
   `start_date` date DEFAULT NULL,
