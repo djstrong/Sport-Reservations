@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: localhost
--- Generation Time: Sep 10, 2012 at 12:50 AM
+-- Generation Time: Sep 10, 2012 at 05:18 PM
 -- Server version: 5.5.24
 -- PHP Version: 5.3.10-1ubuntu3.2
 
@@ -39,21 +39,49 @@ BEGIN
     RETURN LAST_INSERT_ID();
 END$$
 
+CREATE DEFINER=`root`@`localhost` FUNCTION `addEmptyBusy`(place_id INT, date DATE) RETURNS varchar(255) CHARSET utf8 COLLATE utf8_polish_ci
+BEGIN
+
+DECLARE start_hour, end_hour, slot TIME;
+DECLARE slots INT;
+DECLARE var VARCHAR(255);
+
+SELECT MIN(PRICE.start_hour), MAX(PRICE.end_hour) INTO start_hour, end_hour FROM PRICE, PLACE 
+WHERE PLACE.id=place_id AND PRICE.location_sport_id=PLACE.location_sport_id 
+AND WEEKDAY(date) BETWEEN PRICE.start_week_day AND PRICE.end_week_day
+AND date BETWEEN PRICE.start_date AND PRICE.end_date;
+
+SELECT ls.slot INTO slot FROM LOCATION_SPORT ls JOIN PLACE p on ls.id=p.location_sport_id WHERE p.id=place_id;
+
+SELECT TIME_TO_SEC(TIMEDIFF(end_hour, start_hour))/TIME_TO_SEC(slot) INTO slots;
+
+set var:='';
+while(slots>0) do
+    set var:=concat(var,'0');
+    set slots:=slots-1;
+end while;
+
+INSERT IGNORE INTO BUSY(place_id, date, occupation, start_hour) VALUES(place_id, date, var, start_hour);
+
+RETURN var;
+
+END$$
+
 CREATE DEFINER=`root`@`localhost` FUNCTION `addReservation`(client_id INT, place_id INT, date DATE,reservation_datetime DATETIME, start_hour TIME, end_hour TIME) RETURNS int(11)
 BEGIN
     DECLARE reservation_made, reservation_limit, overlaps INT;
     DECLARE cost DECIMAL; #TODO
-    SELECT COUNT(*) INTO @reservation_made FROM RESERVATION r WHERE r.client_id=client_id AND r.cancelled=FALSE
+    SELECT COUNT(*) INTO reservation_made FROM RESERVATION r WHERE r.client_id=client_id AND r.cancelled=FALSE
     AND TIMESTAMP(r.date, r.start_hour)>=NOW();
 
-    SELECT `limit` INTO @reservation_limit FROM CLIENT_STATUS cs JOIN CLIENT c ON c.client_status=cs.id AND c.id=client_id;
+    SELECT `limit` INTO reservation_limit FROM CLIENT_STATUS cs JOIN CLIENT c ON c.client_status=cs.id AND c.id=client_id;
 
-    SELECT COUNT(*) INTO @overlaps FROM RESERVATION r 
+    SELECT COUNT(*) INTO overlaps FROM RESERVATION r 
     WHERE r.place_id=place_id AND r.date=date AND r.cancelled=FALSE AND
     r.start_hour<=start_hour AND end_hour<=r.end_hour;
 
     if (overlaps=0 AND reservation_made<reservation_limit) THEN
-        INSERT INTO RESERVATION(id, client_id, place_id, date, reservation_datetime, start_hour, end_hour, cost) VALUES(NULL, id, client_id, place_id, date, reservation_datetime, start_hour, end_hour, cost);
+        INSERT INTO RESERVATION(id, client_id, place_id, date, reservation_datetime, start_hour, end_hour, cost, cancelled, paid) VALUES(NULL, id, client_id, place_id, date, reservation_datetime, start_hour, end_hour, cost, FALSE, FALSE);
         RETURN 1;
     ELSE
         RETURN 0;
@@ -63,6 +91,15 @@ END$$
 CREATE DEFINER=`root`@`localhost` FUNCTION `cancelReservation`(reservation_id INT, client_id INT) RETURNS int(11)
 BEGIN
     UPDATE RESERVATION r SET cancelled=TRUE WHERE r.id=reservation_id AND r.client_id=client_id AND TIMESTAMP(r.date, r.start_hour)>=NOW();
+    RETURN ROW_COUNT();
+END$$
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `changePassword`(client_id INT, password VARCHAR(255), salt CHAR(20)) RETURNS int(11)
+BEGIN
+    UPDATE CLIENT
+    SET c.salt=salt, c.hash=SHA(CONCAT(salt,password))
+    WHERE c.client_id=client_id;
+    #TODO moze podawac tez stare haslo?
     RETURN ROW_COUNT();
 END$$
 
@@ -105,14 +142,14 @@ CREATE DEFINER=`root`@`localhost` FUNCTION `getPrice`(place_id INT, client_id IN
     READS SQL DATA
 BEGIN
     DECLARE cost DECIMAL;
-    SELECT cost INTO @cost FROM PRICE p JOIN CLIENT c ON c.id=client_id AND c.group_id=p.group_id WHERE p.place_id=place_id AND WEEKDAY(date) BETWEEN start_weekday AND end_weekday;
+    SELECT cost INTO cost FROM PRICE p JOIN CLIENT c ON c.id=client_id AND c.group_id=p.group_id WHERE p.place_id=place_id AND WEEKDAY(date) BETWEEN start_weekday AND end_weekday;
     RETURN cost;
 END$$
 
 CREATE DEFINER=`root`@`localhost` FUNCTION `login`(mail VARCHAR(255), password VARCHAR(255)) RETURNS int(11)
 BEGIN
     DECLARE ret INT;
-    SELECT COUNT(*) INTO @ret FROM CLIENT c WHERE c.mail=mail AND c.hash=SHA(CONCAT(salt,password));
+    SELECT COUNT(*) INTO ret FROM CLIENT c WHERE c.mail=mail AND c.hash=SHA(CONCAT(salt,password));
     RETURN ret;
 END$$
 
@@ -137,13 +174,20 @@ CREATE TABLE IF NOT EXISTS `BENEFIT` (
 --
 
 CREATE TABLE IF NOT EXISTS `BUSY` (
-  `PLACE_id` int(11) NOT NULL,
-  `day` date NOT NULL,
-  `occupation` varchar(45) COLLATE utf8_polish_ci NOT NULL,
+  `place_id` int(11) NOT NULL,
+  `date` date NOT NULL,
+  `occupation` varchar(255) COLLATE utf8_polish_ci NOT NULL,
   `start_hour` time NOT NULL,
-  PRIMARY KEY (`PLACE_id`,`day`),
-  KEY `fk_BUSY_PLACE1` (`PLACE_id`)
+  PRIMARY KEY (`place_id`,`date`),
+  KEY `fk_BUSY_PLACE1` (`place_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_polish_ci;
+
+--
+-- Dumping data for table `BUSY`
+--
+
+INSERT INTO `BUSY` (`place_id`, `date`, `occupation`, `start_hour`) VALUES
+(1, '2012-09-10', '000000000000000000000000', '00:00:00');
 
 -- --------------------------------------------------------
 
@@ -154,8 +198,8 @@ CREATE TABLE IF NOT EXISTS `BUSY` (
 CREATE TABLE IF NOT EXISTS `CLIENT` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `company_id` int(11) NOT NULL,
-  `name` varchar(45) COLLATE utf8_polish_ci DEFAULT NULL,
-  `surname` varchar(45) COLLATE utf8_polish_ci DEFAULT NULL,
+  `name` varchar(255) COLLATE utf8_polish_ci DEFAULT NULL,
+  `surname` varchar(255) COLLATE utf8_polish_ci DEFAULT NULL,
   `mail` varchar(255) COLLATE utf8_polish_ci NOT NULL,
   `group_id` int(11) NOT NULL,
   `hash` char(40) COLLATE utf8_polish_ci NOT NULL,
@@ -259,6 +303,40 @@ INSERT INTO `CONNECTED_PLACES` (`place1_id`, `place2_id`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `DEBUG`
+--
+
+CREATE TABLE IF NOT EXISTS `DEBUG` (
+  `a` varchar(255) COLLATE utf8_polish_ci DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_polish_ci;
+
+--
+-- Dumping data for table `DEBUG`
+--
+
+INSERT INTO `DEBUG` (`a`) VALUES
+(NULL),
+(NULL),
+(NULL),
+(NULL),
+('00:00:00'),
+(''),
+('00:00:00'),
+('111111'),
+('00:00:00'),
+('00000000000000000000000000000000000000000000000000000000000000000'),
+('00:00:00'),
+('000000000000000111111000000000000000000000000000000000000000000000'),
+('15'),
+('21'),
+('00:00:00'),
+('0000000000000001111111000000000000000000000000000000000000000000000'),
+('9'),
+('15');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `EMPLOYER`
 --
 
@@ -266,8 +344,8 @@ CREATE TABLE IF NOT EXISTS `EMPLOYER` (
   `id` int(11) NOT NULL,
   `comapny_id OR location_id` varchar(45) COLLATE utf8_polish_ci DEFAULT NULL,
   `name` varchar(255) COLLATE utf8_polish_ci DEFAULT NULL,
-  `surname` varchar(45) COLLATE utf8_polish_ci DEFAULT NULL,
-  `login` varchar(45) COLLATE utf8_polish_ci NOT NULL,
+  `surname` varchar(255) COLLATE utf8_polish_ci DEFAULT NULL,
+  `login` varchar(255) COLLATE utf8_polish_ci NOT NULL,
   `hash` char(40) COLLATE utf8_polish_ci NOT NULL,
   `salt` char(20) COLLATE utf8_polish_ci NOT NULL,
   PRIMARY KEY (`id`),
@@ -383,19 +461,19 @@ INSERT INTO `PLACE` (`id`, `location_sport_id`, `name`, `limit`) VALUES
 CREATE TABLE IF NOT EXISTS `PRICE` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `location_sport_id` int(11) NOT NULL,
-  `GROUP_id` int(11) NOT NULL,
+  `group_id` int(11) NOT NULL,
   `cost` decimal(10,0) NOT NULL,
-  `start_hour` time DEFAULT NULL,
-  `end_hour` time DEFAULT NULL,
-  `start_date` date DEFAULT NULL,
-  `end_date` date DEFAULT NULL,
-  `length` time DEFAULT NULL,
-  `BENEFIT_id` int(11) DEFAULT NULL,
-  `start_week_day` int(11) DEFAULT NULL,
-  `end_week_day` int(11) DEFAULT NULL,
+  `start_hour` time NOT NULL,
+  `end_hour` time NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `length` time NOT NULL,
+  `benefit_id` int(11) DEFAULT NULL,
+  `start_week_day` int(11) NOT NULL,
+  `end_week_day` int(11) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `fk_PRICE_GROUP1` (`GROUP_id`),
-  KEY `fk_PRICE_BENEFIT1` (`BENEFIT_id`),
+  KEY `fk_PRICE_GROUP1` (`group_id`),
+  KEY `fk_PRICE_BENEFIT1` (`benefit_id`),
   KEY `fk_PRICE_LOCATION_SPORT1` (`location_sport_id`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_polish_ci COMMENT='* czy zrobic 7 kolumn oznaczajacych dzien tygodnia\n* obsluga' AUTO_INCREMENT=12 ;
 
@@ -403,7 +481,7 @@ CREATE TABLE IF NOT EXISTS `PRICE` (
 -- Dumping data for table `PRICE`
 --
 
-INSERT INTO `PRICE` (`id`, `location_sport_id`, `GROUP_id`, `cost`, `start_hour`, `end_hour`, `start_date`, `end_date`, `length`, `BENEFIT_id`, `start_week_day`, `end_week_day`) VALUES
+INSERT INTO `PRICE` (`id`, `location_sport_id`, `group_id`, `cost`, `start_hour`, `end_hour`, `start_date`, `end_date`, `length`, `benefit_id`, `start_week_day`, `end_week_day`) VALUES
 (1, 1, 1, 545, '00:00:00', '24:00:00', '2012-09-01', '2013-09-01', '01:00:00', NULL, 0, 6),
 (2, 2, 1, 105, '00:00:00', '09:00:00', '2012-09-01', '2013-09-01', '01:00:00', NULL, 0, 6),
 (3, 2, 1, 135, '09:00:00', '15:00:00', '2012-09-01', '2013-09-01', '01:00:00', NULL, 0, 6),
@@ -436,7 +514,92 @@ CREATE TABLE IF NOT EXISTS `RESERVATION` (
   PRIMARY KEY (`id`),
   KEY `fk_RESERVATION_PLACE1` (`place_id`),
   KEY `fk_RESERVATION_CLIENT1` (`client_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_polish_ci AUTO_INCREMENT=1 ;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_polish_ci AUTO_INCREMENT=5 ;
+
+--
+-- Dumping data for table `RESERVATION`
+--
+
+INSERT INTO `RESERVATION` (`id`, `client_id`, `place_id`, `date`, `reservation_datetime`, `start_hour`, `end_hour`, `cost`, `cancelled`, `paid`) VALUES
+(1, 1, 1, '2012-09-10', '2012-09-10 00:00:00', '09:00:00', '15:00:00', 20, 1, 0),
+(2, 1, 1, '2012-09-10', '2012-09-10 00:00:00', '09:00:00', '15:00:00', 20, 1, 0),
+(3, 1, 1, '2012-09-10', '2012-09-10 00:00:00', '09:00:00', '15:00:00', 23, 1, 0),
+(4, 1, 1, '2012-09-10', '2012-09-10 00:00:00', '09:00:00', '15:00:00', 23, 1, 0);
+
+--
+-- Triggers `RESERVATION`
+--
+DROP TRIGGER IF EXISTS `upadte1Busy`;
+DELIMITER //
+CREATE TRIGGER `upadte1Busy` AFTER INSERT ON `RESERVATION`
+ FOR EACH ROW BEGIN
+#NEW.date
+#NEW.start_hour
+#NEW.end_hour
+#NEW.place_id
+DECLARE start_hour, slot TIME;
+DECLARE start_slot, end_slot INT;
+DECLARE occupation VARCHAR(255);
+DECLARE var VARCHAR(255);
+SELECT b.start_hour, b.occupation INTO start_hour, occupation FROM BUSY b WHERE b.place_id=NEW.place_id AND b.date=NEW.date;
+
+
+
+SELECT ls.slot INTO slot FROM LOCATION_SPORT ls JOIN PLACE p on ls.id=p.location_sport_id WHERE p.id=NEW.place_id;
+
+SELECT TIME_TO_SEC(TIMEDIFF(NEW.start_hour, start_hour))/TIME_TO_SEC(slot) INTO start_slot;
+SELECT TIME_TO_SEC(TIMEDIFF(NEW.end_hour, NEW.start_hour))/TIME_TO_SEC(slot)+start_slot INTO end_slot;
+
+
+
+set var:=substring(occupation,1,start_slot);
+while(start_slot<end_slot) do
+    set var:=concat(var,'1');
+    set start_slot:=start_slot+1;
+end while;
+set var:=concat(var,substring(occupation,end_slot+1));
+
+UPDATE BUSY b SET b.occupation=var WHERE  b.place_id=NEW.place_id AND b.date=NEW.date;
+
+  END
+//
+DELIMITER ;
+DROP TRIGGER IF EXISTS `upadte0Busy`;
+DELIMITER //
+CREATE TRIGGER `upadte0Busy` AFTER UPDATE ON `RESERVATION`
+ FOR EACH ROW BEGIN
+#NEW.date
+#NEW.start_hour
+#NEW.end_hour
+#NEW.place_id
+DECLARE start_hour, slot TIME;
+DECLARE start_slot, end_slot INT;
+DECLARE occupation VARCHAR(255);
+DECLARE var VARCHAR(255);
+if (NEW.cancelled=TRUE) THEN
+SELECT b.start_hour, b.occupation INTO start_hour, occupation FROM BUSY b WHERE b.place_id=NEW.place_id AND b.date=NEW.date;
+
+
+
+SELECT ls.slot INTO slot FROM LOCATION_SPORT ls JOIN PLACE p on ls.id=p.location_sport_id WHERE p.id=NEW.place_id;
+
+SELECT TIME_TO_SEC(TIMEDIFF(NEW.start_hour, start_hour))/TIME_TO_SEC(slot) INTO start_slot;
+SELECT TIME_TO_SEC(TIMEDIFF(NEW.end_hour, NEW.start_hour))/TIME_TO_SEC(slot)+start_slot INTO end_slot;
+
+
+
+set var:=substring(occupation,1,start_slot);
+while(start_slot<end_slot) do
+    set var:=concat(var,'0');
+    set start_slot:=start_slot+1;
+end while;
+set var:=concat(var,substring(occupation,end_slot+1));
+
+UPDATE BUSY b SET b.occupation=var WHERE  b.place_id=NEW.place_id AND b.date=NEW.date;
+end if;
+  END
+//
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -474,7 +637,7 @@ INSERT INTO `SPORT` (`id`, `name`) VALUES
 -- Constraints for table `BUSY`
 --
 ALTER TABLE `BUSY`
-  ADD CONSTRAINT `fk_BUSY_PLACE1` FOREIGN KEY (`PLACE_id`) REFERENCES `PLACE` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
+  ADD CONSTRAINT `fk_BUSY_PLACE1` FOREIGN KEY (`place_id`) REFERENCES `PLACE` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
 -- Constraints for table `CLIENT`
@@ -514,8 +677,8 @@ ALTER TABLE `PLACE`
 -- Constraints for table `PRICE`
 --
 ALTER TABLE `PRICE`
-  ADD CONSTRAINT `fk_PRICE_GROUP1` FOREIGN KEY (`GROUP_id`) REFERENCES `GROUP` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  ADD CONSTRAINT `fk_PRICE_BENEFIT1` FOREIGN KEY (`BENEFIT_id`) REFERENCES `BENEFIT` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  ADD CONSTRAINT `fk_PRICE_GROUP1` FOREIGN KEY (`group_id`) REFERENCES `GROUP` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
+  ADD CONSTRAINT `fk_PRICE_BENEFIT1` FOREIGN KEY (`benefit_id`) REFERENCES `BENEFIT` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   ADD CONSTRAINT `fk_PRICE_LOCATION_SPORT1` FOREIGN KEY (`location_sport_id`) REFERENCES `LOCATION_SPORT` (`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 --
